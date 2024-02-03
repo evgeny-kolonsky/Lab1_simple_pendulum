@@ -4,7 +4,7 @@
 % Experiment 1:  T(theta)
 % l = 80 cm
 theta = [5 10 20 35 30 35 40 50 60 70 80]
-theta_err = 5 * ones(11,1)
+theta_err = 1 * ones(11,1)
 T10 = [14.37 14.52 14.62 14.69 14.66 14.76 14.88 15.08 15.28 15.53 16.22]
 N = 10
 T = T10 / N 
@@ -14,7 +14,7 @@ figure(1)
 errorbar(theta, T, T_err, T_err, theta_err, theta_err, 'o')
 xlabel('Angular amplitude, [grad]')
 ylabel('Oscillations period, [s]')
-legend('measurements', fit_text)
+legend('measurements')
 grid on
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -43,13 +43,65 @@ hold on
 % measurements with error bars
 errorbar(lnl, lnT, lnT_err, lnT_err, lnl_err, lnl_err, 'o')
 
-cf = fit(lnl,lnT,'poly1')
 
-alpha = cf.p1
-ci = confint(cf) % confidence intervals
+cf2 = fit(lnl,lnT,'poly1')
+
+alpha = cf2.p1
+ci = confint(cf2) % confidence intervals
 delta_alpha = (ci(2,1) - ci(1,1)) / 2 % uncertainty of alpha
 fit_text = sprintf('fitted alpha = %.2f ± %.2f', alpha, delta_alpha)
-plot(cf, 'predfunc')
+plot(cf2, 'predfunc')
+xlim([min(lnl) - 0.1, max(lnl)+0.1])
+
+xlabel('log L/Lmax')
+ylabel('log T/Tmax')
+grid on
+hold off
+legend('measurements', fit_text)
+
+
+%% a = Y/X
+
+% Refer to 
+% Taylor, Introduction to Error Analysis,
+% Ch.7 7.2 "The Weighted Average"
+
+l = [508 480 432 410 332 303 330 370 420 462]'; % mm
+T10 = [14.62 14.09 13.39 13.02 11.65 11.22 11.78 12.63 13.19 13.83]';
+l = sort(l, "descend");
+T10 = sort(T10, "descend");
+l_err = 10; % mm
+delta_l = l_err ./ l; % relative error
+T10_err = 0.3; % s human eye/brain reaction error
+delta_T = T10_err ./ T10; % relative error
+
+Tmax = T10(1);
+lmax = l(1);
+lnT = log(T10/Tmax);
+lnl = log(l/lmax);
+
+lnT_err = delta_T ./ (T10 / Tmax);
+lnl_err = delta_l ./ (l / lmax);
+
+
+a = lnT(2:end) ./ lnl(2:end);
+lnT_err_rel = lnT_err(2:end) ./lnT(2:end);
+lnl_err_rel = lnl_err(2:end) ./lnl(2:end);
+
+a_err_rel = sqrt(lnT_err_rel .* lnT_err_rel + ...
+                 lnl_err_rel .* lnl_err_rel);
+a_err = a .* a_err_rel;
+
+weights = 1 ./ (a_err .* a_err);
+
+a_mean = sum(a .* weights) / sum(weights);
+
+a_mean_err = 1 / sqrt(sum(weights));
+
+errorbar(lnl, lnT, lnT_err, lnT_err, lnl_err, lnl_err, 'o')
+hold on
+plot(lnl, lnl * a_mean)
+fit_text = sprintf('weighted alpha = %.2f ± %.2f', a_mean, a_mean_err);
 xlim([min(lnl) - 0.1, max(lnl)+0.1])
 
 xlabel('log L/Lmax')
