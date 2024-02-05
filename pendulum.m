@@ -1,80 +1,67 @@
-% מטוטלת פשותה. עיבוד נתונים
+% Pendulum
 % Evgeny Kolonsky Jan 2024
+clear 
+close all
+%%
+
+% Errors
+T10_err = 0.5; % s human reaction error
+L_err = 10; % mm, uncertainty in length measurements
+theta_err0 = 5; % grad, uncertainty in angle
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Experiment 1:  T(theta)
 % l = 80 cm
-theta = [5 10 20 35 30 35 40 50 60 70 80]
-theta_err = 1 * ones(11,1)
-T10 = [14.37 14.52 14.62 14.69 14.66 14.76 14.88 15.08 15.28 15.53 16.22]
-N = 10
-T = T10 / N 
-T10_err = 0.2 % s human eye error
-T_err = T10_err/10 * ones(11,1) % 0.2s / 10
+theta = [5 10 20 35 30 35 40 50 60 70 80];
+theta_err = theta_err0 * ones(11,1);
+T10 = [14.37 14.52 14.62 14.69 14.66 14.76 14.88 15.08 15.28 15.53 16.22];
+N = 10;
+T = T10 / N ;
+T_err = T10_err/10 * ones(11,1); % err / 10
 figure(1)
 errorbar(theta, T, T_err, T_err, theta_err, theta_err, 'o')
 xlabel('Angular amplitude, [grad]')
 ylabel('Oscillations period, [s]')
 legend('measurements')
 grid on
+hold off
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Experiment 2: T(l)
 % Theta <= 30 grad
 
-l1 = [508 480 432 410 332 303 330 370 420 462]' % mm
-l2 = 100 / 2 % mm
-l = sqrt(l1 .* l1 - l2 * l2) % Pyfagorus
-T10 = [14.62 14.09 13.39 13.02 11.65 11.22 11.78 12.63 13.19 13.83]'
-l_err = 2 % mm
-delta_l = l_err ./ l % relative error
-T10_err = 0.2 % s human eye/brain reaction error
-delta_T = T10_err ./ T10 % relative error
+l = [508 480 432 410 332 303 330 370 420 462]; % mm
+T10 = [14.62 14.09 13.39 13.02 11.65 11.22 11.78 12.63 13.19 13.83];
+delta_l = L_err ./ l; % relative error
+delta_T = T10_err ./ T10; % relative error
+Tmax = T(1);
+lmax = l(1);
 
-Tmax = T10(1)
-lmax = l(1)
-lnT = log(T10/Tmax)
-lnl = log(l/lmax)
 
-lnT_err = delta_T ./ (T10 / Tmax)
-lnl_err = delta_l ./ (l / lmax)
+T_unitless = T10 ./ Tmax / 10;
+l_unitless = l / lmax;
+% errors in unitless T and l
+T_u_err = T10_err /10 /Tmax * ones(10,1);
+l_u_err = L_err /lmax * ones(10,1);
+
+% array of points on l axis to build estimated curve
+l_expected = linspace(0, max(l_unitless));
+T_expected = sqrt(l_expected);
 
 figure(2)
 hold on
-% measurements with error bars
-errorbar(lnl, lnT, lnT_err, lnT_err, lnl_err, lnl_err, 'o')
+errorbar(l_unitless, T_unitless, T_u_err, T_u_err, l_u_err, l_u_err, '.')
+plot(l_expected, T_expected)
+legend('measurements', 'expected alpha=0.5')
 
-
-cf2 = fit(lnl,lnT,'poly1')
-
-alpha = cf2.p1
-ci = confint(cf2) % confidence intervals
-delta_alpha = (ci(2,1) - ci(1,1)) / 2 % uncertainty of alpha
-fit_text = sprintf('fitted alpha = %.2f ± %.2f', alpha, delta_alpha)
-plot(cf2, 'predfunc')
-xlim([min(lnl) - 0.1, max(lnl)+0.1])
-
-xlabel('log L/Lmax')
-ylabel('log T/Tmax')
+xlabel('L/Lmax')
+ylabel('T/Tmax')
 grid on
 hold off
-legend('measurements', fit_text)
 
 
-%% a = Y/X
 
-% Refer to 
-% Taylor, Introduction to Error Analysis,
-% Ch.7 7.2 "The Weighted Average"
-
-l = [508 480 432 410 332 303 330 370 420 462]'; % mm
-T10 = [14.62 14.09 13.39 13.02 11.65 11.22 11.78 12.63 13.19 13.83]';
-l = sort(l, "descend");
-T10 = sort(T10, "descend");
-l_err = 10; % mm
-delta_l = l_err ./ l; % relative error
-T10_err = 0.3; % s human eye/brain reaction error
-delta_T = T10_err ./ T10; % relative error
-
+%% ln axis
 Tmax = T10(1);
 lmax = l(1);
 lnT = log(T10/Tmax);
@@ -83,29 +70,25 @@ lnl = log(l/lmax);
 lnT_err = delta_T ./ (T10 / Tmax);
 lnl_err = delta_l ./ (l / lmax);
 
-
-a = lnT(2:end) ./ lnl(2:end);
-lnT_err_rel = lnT_err(2:end) ./lnT(2:end);
-lnl_err_rel = lnl_err(2:end) ./lnl(2:end);
-
-a_err_rel = sqrt(lnT_err_rel .* lnT_err_rel + ...
-                 lnl_err_rel .* lnl_err_rel);
-a_err = a .* a_err_rel;
-
-weights = 1 ./ (a_err .* a_err);
-
-a_mean = sum(a .* weights) / sum(weights);
-
-a_mean_err = 1 / sqrt(sum(weights));
-
-errorbar(lnl, lnT, lnT_err, lnT_err, lnl_err, lnl_err, 'o')
+figure(3)
 hold on
-plot(lnl, lnl * a_mean)
-fit_text = sprintf('weighted alpha = %.2f ± %.2f', a_mean, a_mean_err);
-xlim([min(lnl) - 0.1, max(lnl)+0.1])
+% measurements with error bars
+errorbar(lnl, lnT, lnT_err, lnT_err, lnl_err, lnl_err, 'o')
+
+% linear regression with intercept = 0
+linear_regression = fitlm(lnl,lnT, 'Intercept',false);
+R_squared = linear_regression.Rsquared.Ordinary;
+a_coefficient = linear_regression.Coefficients.Estimate(1);
+a_error = linear_regression.Coefficients.SE(1);
+fit_text = sprintf('alpha = %.2f ± %.2f', a_coefficient, a_error);
+
+plot(lnl,linear_regression.Fitted,'k');
+
+legend('measurements', fit_text)
 
 xlabel('log L/Lmax')
 ylabel('log T/Tmax')
 grid on
 hold off
-legend('measurements', fit_text)
+
+
